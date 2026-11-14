@@ -5,11 +5,10 @@
 Los siguientes elementos aún deben incorporarse al proyecto:
 
 1. Panel web (frontend): mostrar en tiempo real la temperatura, la humedad y el nivel de agua; indicador visual de estado (verde o rojo); gráfico de las lecturas; tabla con las diez últimas lecturas y aviso de alertas. Debe conectarse al WebSocket `/live` y, si la conexión falla, consultar periódicamente los endpoints de lectura.
-2. Simulador del ESP32: script que envíe al endpoint `POST /sensor-data` una lectura cada diez segundos, para realizar pruebas sin el dispositivo.
-3. Exposición pública del backend mediante Cloudflare Quick Tunnel, con una guía breve de uso y una colección de Postman para enviar lecturas de prueba. El backend deberá servir también el frontend compilado, de modo que una sola URL pública muestre el panel.
-4. Documentos de arquitectura del sistema y de arquitectura del software.
-5. Pruebas finales: prueba de carga y verificación de cada requisito del enunciado.
-6. Opcional: una tercera base de datos de tipo grafo como funcionalidad adicional.
+2. Exposición pública del backend mediante Cloudflare Quick Tunnel, con una guía breve de uso y una colección de Postman para enviar lecturas de prueba. El backend deberá servir también el frontend compilado, de modo que una sola URL pública muestre el panel.
+3. Documentos de arquitectura del sistema y de arquitectura del software.
+4. Pruebas finales: prueba de carga y verificación de cada requisito del enunciado.
+5. Opcional: una tercera base de datos de tipo grafo como funcionalidad adicional.
 
 Valores por confirmar con el profesor: el umbral de temperatura de las alertas (actualmente 30 °C) y el nivel mínimo de agua (actualmente 1, equivalente a 25 %). Ambos se modifican en el archivo `.env`, sin cambiar el código.
 
@@ -25,7 +24,7 @@ Para mantener la estructura del proyecto, cada tipo de código tiene un lugar de
 | Validación de datos de entrada | `backend/src/validation/` |
 | Funcionalidad de tiempo real | `backend/src/realtime/` |
 | Valores configurables (umbrales, puertos, direcciones) | `backend/src/config.js` y `.env.example`; nunca escritos directamente en el código |
-| Scripts auxiliares (simulador, utilidades) | `backend/scripts/` |
+| Scripts auxiliares (utilidades, pruebas manuales) | `backend/scripts/` |
 | Código del panel web | `frontend/src/` |
 | Pruebas | `backend/tests/` o `frontend/tests/`, con nombre `<modulo>.test.js` |
 | Documentos de arquitectura | `documentacion/` |
@@ -87,7 +86,9 @@ Infraestructura (`docker-compose.yml`):
 │   ├── package.json
 │   ├── eslint.config.js
 │   ├── scripts/
-│   │   └── smoke.js          Prueba de humo contra el sistema en ejecución
+│   │   ├── smoke.js          Prueba de humo contra el sistema en ejecución
+│   │   ├── simulator.js      Simulador del ESP32 (línea de comandos)
+│   │   └── simulatorCore.js  Generación de lecturas y lectura de opciones
 │   ├── src/
 │   │   ├── server.js         Punto de entrada: conexiones y arranque
 │   │   ├── app.js            Construcción de la aplicación Express
@@ -145,7 +146,24 @@ Infraestructura (`docker-compose.yml`):
    curl -X POST http://localhost:3000/sensor-data -H "Content-Type: application/json" -d '{"deviceId":"esp32_1","temperatura":"24.50","humedad":"60.00","nivelAgua":2}'
    ```
 
-6. Ejecutar el frontend:
+6. Simular el ESP32 (desde `backend/`, con el servidor en ejecución). Por defecto envía una lectura fija cada diez segundos al dispositivo `esp32_1` hasta que se detiene con Ctrl+C:
+
+   ```
+   npm run simulate
+   ```
+
+   Opciones disponibles:
+
+   - `--mode fixed|random|alert`: lectura fija, valores aleatorios realistas o un ciclo que provoca alertas.
+   - `--interval MS`: intervalo entre envíos en milisegundos (mínimo 100).
+   - `--count N`: cantidad de envíos (0 para enviar sin límite).
+   - `--url URL`: dirección del backend, por ejemplo la URL pública del túnel.
+   - `--device ID`: identificador del dispositivo.
+   - `--numbers`: envía temperatura y humedad como números en lugar de texto.
+
+   Ejemplo: `npm run simulate -- --mode alert --interval 2000 --count 8`
+
+7. Ejecutar el frontend:
 
    ```
    cd frontend
@@ -153,7 +171,7 @@ Infraestructura (`docker-compose.yml`):
    npm run dev
    ```
 
-7. Detener las bases de datos:
+8. Detener las bases de datos:
 
    ```
    docker compose down
