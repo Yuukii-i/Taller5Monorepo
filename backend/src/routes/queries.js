@@ -15,7 +15,7 @@ function normalizeReading(doc) {
   };
 }
 
-export function createQueryRouter({ readingsRepo, liveState, health } = {}) {
+export function createQueryRouter({ readingsRepo, liveState, health, liveHub } = {}) {
   const router = Router();
 
   // 1. GET /devices
@@ -264,12 +264,17 @@ export function createQueryRouter({ readingsRepo, liveState, health } = {}) {
 
     const mongoStatus = mongoUp ? 'up' : 'down';
     const valkeyStatus = valkeyUp ? 'up' : 'down';
+    const extra =
+      liveHub && typeof liveHub.clientCount === 'function'
+        ? { liveClients: liveHub.clientCount() }
+        : {};
 
     if (!mongoUp) {
       return res.status(503).json({
         status: 'down',
         mongo: mongoStatus,
-        valkey: valkeyStatus
+        valkey: valkeyStatus,
+        ...extra
       });
     }
 
@@ -277,14 +282,16 @@ export function createQueryRouter({ readingsRepo, liveState, health } = {}) {
       return res.status(200).json({
         status: 'degraded',
         mongo: mongoStatus,
-        valkey: valkeyStatus
+        valkey: valkeyStatus,
+        ...extra
       });
     }
 
     return res.status(200).json({
       status: 'ok',
       mongo: mongoStatus,
-      valkey: valkeyStatus
+      valkey: valkeyStatus,
+      ...extra
     });
   });
 

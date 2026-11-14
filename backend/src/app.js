@@ -4,7 +4,7 @@ import { createSensorDataRouter } from './routes/sensorData.js';
 import { createQueryRouter } from './routes/queries.js';
 import { createAlertsRouter } from './routes/alerts.js';
 
-export function createApp({ ingestService, readingsRepo, liveState, health, alertsRepo } = {}) {
+export function createApp({ ingestService, readingsRepo, liveState, health, alertsRepo, liveHub } = {}) {
   const app = express();
 
   app.post('/sensor-data', lenientJsonBody());
@@ -33,7 +33,7 @@ export function createApp({ ingestService, readingsRepo, liveState, health, aler
     next(err);
   });
 
-  app.use(createQueryRouter({ readingsRepo, liveState, health }));
+  app.use(createQueryRouter({ readingsRepo, liveState, health, liveHub }));
   app.use(createSensorDataRouter({ ingestService }));
   app.use(createAlertsRouter({ alertsRepo }));
 

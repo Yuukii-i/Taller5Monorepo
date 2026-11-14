@@ -138,7 +138,7 @@ describe('POST /sensor-data', () => {
     warnSpy.mockRestore();
   });
 
-  describe('lenient JSON parsing (T1c)', () => {
+  describe('lenient JSON parsing', () => {
     const validRawPayload = JSON.stringify({
       deviceId: 'esp32_1',
       temperatura: '24.50',

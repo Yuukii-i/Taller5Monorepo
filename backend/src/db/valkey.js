@@ -1,5 +1,17 @@
 import Redis from 'ioredis';
 
+function attachErrorLogger(client) {
+  const seenErrors = new Set();
+
+  client.on('error', (err) => {
+    const msg = err?.message || String(err);
+    if (!seenErrors.has(msg)) {
+      seenErrors.add(msg);
+      console.warn(`Valkey connection error: ${msg}`);
+    }
+  });
+}
+
 /**
  * Creates a Valkey (Redis-compatible) client.
  *
@@ -12,15 +24,26 @@ export function createValkeyClient(url) {
     enableOfflineQueue: false
   });
 
-  const seenErrors = new Set();
+  attachErrorLogger(client);
 
-  client.on('error', (err) => {
-    const msg = err?.message || String(err);
-    if (!seenErrors.has(msg)) {
-      seenErrors.add(msg);
-      console.warn(`Valkey connection error: ${msg}`);
-    }
+  return client;
+}
+
+/**
+ * Creates a dedicated Valkey subscriber client for pub/sub.
+ * Queues subscribe commands until connected and auto-resubscribes on reconnect.
+ *
+ * @param {string} url - Valkey / Redis connection URL.
+ * @returns {Redis}
+ */
+export function createValkeySubscriber(url) {
+  const client = new Redis(url, {
+    enableOfflineQueue: true,
+    maxRetriesPerRequest: null,
+    autoResubscribe: true
   });
+
+  attachErrorLogger(client);
 
   return client;
 }
