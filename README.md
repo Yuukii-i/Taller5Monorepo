@@ -1,10 +1,49 @@
 # Taller 5 - Conexión IoT
 
+## Trabajo pendiente
+
+Los siguientes elementos aún deben incorporarse al proyecto:
+
+1. Panel web (frontend): mostrar en tiempo real la temperatura, la humedad y el nivel de agua; indicador visual de estado (verde o rojo); gráfico de las lecturas; tabla con las diez últimas lecturas y aviso de alertas. Debe conectarse al WebSocket `/live` y, si la conexión falla, consultar periódicamente los endpoints de lectura.
+2. Simulador del ESP32: script que envíe al endpoint `POST /sensor-data` una lectura cada diez segundos, para realizar pruebas sin el dispositivo.
+3. Exposición pública del backend mediante Cloudflare Quick Tunnel, con una guía breve de uso y una colección de Postman para enviar lecturas de prueba. El backend deberá servir también el frontend compilado, de modo que una sola URL pública muestre el panel.
+4. Documentos de arquitectura del sistema y de arquitectura del software.
+5. Pruebas finales: prueba de carga y verificación de cada requisito del enunciado.
+6. Opcional: una tercera base de datos de tipo grafo como funcionalidad adicional.
+
+Valores por confirmar con el profesor: el umbral de temperatura de las alertas (actualmente 30 °C) y el nivel mínimo de agua (actualmente 1, equivalente a 25 %). Ambos se modifican en el archivo `.env`, sin cambiar el código.
+
+## Guía para colaborar
+
+Para mantener la estructura del proyecto, cada tipo de código tiene un lugar definido:
+
+| Qué se agrega | Dónde va |
+|---|---|
+| Un endpoint nuevo | `backend/src/routes/`, un archivo por grupo de endpoints, registrado en `backend/src/app.js` |
+| Lógica de negocio (cálculos, reglas, alertas) | `backend/src/services/` |
+| Consultas a MongoDB o Valkey | `backend/src/repositories/`; ningún otro módulo debe acceder directamente a las bases de datos |
+| Validación de datos de entrada | `backend/src/validation/` |
+| Funcionalidad de tiempo real | `backend/src/realtime/` |
+| Valores configurables (umbrales, puertos, direcciones) | `backend/src/config.js` y `.env.example`; nunca escritos directamente en el código |
+| Scripts auxiliares (simulador, utilidades) | `backend/scripts/` |
+| Código del panel web | `frontend/src/` |
+| Pruebas | `backend/tests/` o `frontend/tests/`, con nombre `<modulo>.test.js` |
+| Documentos de arquitectura | `documentacion/` |
+
+Reglas generales:
+
+- No modificar el formato del endpoint `POST /sensor-data` ni el JSON que recibe, ya que el profesor enviará los datos con ese formato.
+- Trabajar en una rama propia y no directamente en `main`.
+- Antes de subir cambios, ejecutar `npm test` y `npm run lint` en `backend/` (y `npm test` en `frontend/`); ambos deben terminar sin errores.
+- Toda funcionalidad nueva debe incluir sus pruebas.
+- No subir el archivo `.env`, la carpeta `node_modules` ni archivos compilados.
+- No cambiar la estructura de carpetas sin acordarlo con el equipo.
+
 ## Introducción
 
 Este proyecto recibe las mediciones que un dispositivo ESP32 envía cada diez segundos en formato JSON (identificador del dispositivo, temperatura, humedad y nivel de agua) y las pone a disposición de una aplicación web.
 
-El backend expone el endpoint `POST /sensor-data` para recibir los datos, los valida y los almacena. MongoDB conserva el historial completo de lecturas y de alertas, y Valkey (base de datos clave-valor compatible con Redis) mantiene el estado reciente: la última lectura, las diez últimas lecturas, el indicador de dispositivo en línea y los avisos de nuevas lecturas. El sistema genera alertas cuando la temperatura supera un valor máximo o cuando el nivel de agua es bajo, con un tiempo de espera para no repetirlas continuamente. Además, ofrece endpoints de consulta para las últimas lecturas, las estadísticas por hora, los dispositivos, las alertas y el estado del servicio.
+El backend expone el endpoint `POST /sensor-data` para recibir los datos, los valida y los almacena. MongoDB conserva el historial completo de lecturas y de alertas, y Valkey (base de datos clave-valor compatible con Redis) mantiene el estado reciente: la última lectura, las diez últimas lecturas, el indicador de dispositivo en línea y la publicación de nuevas lecturas y alertas. El sistema genera alertas cuando la temperatura supera un valor máximo o cuando el nivel de agua es bajo, con un tiempo de espera para no repetirlas continuamente. Las nuevas lecturas y alertas se transmiten en tiempo real a los navegadores conectados mediante WebSocket en la ruta `/live`. Además, ofrece endpoints de consulta para las últimas lecturas, las estadísticas por hora, los dispositivos, las alertas y el estado del servicio.
 
 El frontend es un proyecto independiente, construido con Vite, destinado a mostrar los datos de los sensores.
 
@@ -17,7 +56,7 @@ Backend (`backend/`), dependencias de ejecución:
 - express: servidor HTTP y definición de endpoints.
 - mongodb: controlador oficial para conectarse a MongoDB.
 - ioredis: cliente para Valkey (compatible con el protocolo de Redis).
-- ws: biblioteca de WebSocket, prevista para la transmisión de datos en tiempo real.
+- ws: servidor WebSocket para la transmisión de datos en tiempo real.
 - dotenv: carga de variables de entorno desde el archivo `.env`.
 
 Backend, dependencias de desarrollo:
@@ -58,6 +97,7 @@ Infraestructura (`docker-compose.yml`):
 │   │   ├── validation/       Validación de los datos del sensor
 │   │   ├── repositories/     Acceso a MongoDB (lecturas, alertas) y a Valkey
 │   │   ├── services/         Lógica de ingesta y de alertas
+│   │   ├── realtime/         Servidor WebSocket y puente con Valkey
 │   │   └── routes/           Endpoints: sensor-data, consultas y alertas
 │   └── tests/                Pruebas automatizadas del backend
 └── frontend/
@@ -84,7 +124,7 @@ Infraestructura (`docker-compose.yml`):
    npm start
    ```
 
-   Las variables de entorno tienen valores por defecto, por lo que el archivo `.env` es opcional para una ejecución local. El servidor queda disponible en `http://localhost:3000`.
+   Las variables de entorno tienen valores por defecto, por lo que el archivo `.env` es opcional para una ejecución local. El servidor queda disponible en `http://localhost:3000` y el canal de tiempo real en `ws://localhost:3000/live`.
 
 3. Ejecutar las pruebas y el análisis de código del backend:
 
